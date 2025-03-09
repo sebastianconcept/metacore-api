@@ -30,6 +30,7 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
     networks:
       - microservices-network
     healthcheck:
@@ -128,11 +129,17 @@ services:
       JWT_SECRET: dev-jwt-secret
       AUTH_EXPIRY: 24h
       LOG_LEVEL: debug
+      KAFKAJS_NO_PARTITIONER_WARNING: 1
     volumes:
       - ./user-service:/app/user-service
       - ./shared:/app/shared
       - /app/user-service/node_modules
       - /app/shared/node_modules
+    command: >
+      sh -c "cd /app/user-service && 
+             rm -rf node_modules/bcrypt && 
+             npm install bcrypt && 
+             npm run start:dev"
     depends_on:
       kafka:
         condition: service_healthy

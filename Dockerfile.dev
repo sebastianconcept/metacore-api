@@ -4,6 +4,9 @@ FROM node:18-alpine
 ARG SERVICE_NAME
 WORKDIR /app
 
+# Install build dependencies for bcrypt
+RUN apk add --no-cache make gcc g++ python3
+
 # Install shared dependencies first
 COPY shared/package*.json ./shared/
 RUN cd shared && npm install
@@ -32,7 +35,8 @@ RUN if [ ! -f tsconfig.json ]; then \
   "rootDir": "./src", \
   "strict": true, \
   "esModuleInterop": true, \
-  "skipLibCheck": true \
+  "skipLibCheck": true, \
+  "moduleResolution": "node" \
   }, \
   "include": ["src/**/*.ts"], \
   "exclude": ["node_modules", "dist"] \
@@ -43,9 +47,6 @@ RUN if [ ! -f tsconfig.json ]; then \
 RUN if [ ! -f src/index.ts ]; then \
   echo 'console.log("Service ${SERVICE_NAME} is running");' > src/index.ts; \
   fi
-
-# Compile TypeScript for development
-RUN npm run build || echo "Build failed, but continuing..."
 
 # Expose port
 EXPOSE 3000

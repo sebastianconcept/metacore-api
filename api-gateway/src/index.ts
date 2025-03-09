@@ -65,6 +65,21 @@ app.use('/api/users', createProxyMiddleware({
   target: USER_SERVICE_URL,
   pathRewrite: { '^/api/users': '/api/users' },
   changeOrigin: true,
+  logLevel: 'debug',
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`Proxying request to user service: ${req.method} ${req.url}`);
+
+    // If there's a request body, handle it properly
+    if (req.body) {
+      const bodyData = JSON.stringify(req.body);
+      proxyReq.setHeader('Content-Type', 'application/json');
+      proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+      proxyReq.write(bodyData);
+    }
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`Received response from user service: ${proxyRes.statusCode}`);
+  },
   onError: (err, req, res) => {
     console.error('Proxy error:', err);
     res.status(503).json({

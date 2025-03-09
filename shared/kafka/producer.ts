@@ -24,7 +24,7 @@ class KafkaProducer {
     });
 
     this.producer = this.kafka.producer();
-    console.log(`KafkaProducer inicializado com clientId: ${clientId}`);
+    console.log(`KafkaProducer initialized with clientId: ${clientId}`);
   }
 
   async connect(): Promise<void> {
@@ -32,7 +32,7 @@ class KafkaProducer {
       try {
         await this.producer.connect();
         this.isConnected = true;
-        console.log('Produtor Kafka conectado com sucesso');
+        console.log('Kafka producer successfully connected');
       } catch (error) {
         console.error('Erro ao conectar o produtor Kafka', error);
         throw error;
@@ -115,10 +115,10 @@ class KafkaProducer {
 
       // Enviando o lote
       const metadata = await this.producer.sendBatch({ topicMessages: messages });
-      console.log('Lote de mensagens enviado com sucesso', metadata);
+      console.log('Message batch successfully sent', metadata);
       return metadata;
     } catch (error) {
-      console.error('Erro ao enviar lote de mensagens', error);
+      console.error('Error while sending messages batch', error);
       throw error;
     }
   }

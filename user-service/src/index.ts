@@ -1,13 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import PostgresClient from '../../shared/db/postgres';
-import KafkaProducer from '../../shared/kafka/producer';
+import { UserRepository } from './repositories/userRepository';
 import { UserService } from './services/userService';
 import { UserController } from './controllers/userController';
 import { AuthMiddleware } from './middleware/authMiddleware';
 import { setupUserRoutes } from './routes/userRoutes';
-import { UserRepository } from './repositories/userRepository';
+import KafkaProducer from '../../shared/kafka/producer';
+import PostgresClient from '../../shared/db/postgres';
 
 // Load environment variables
 const PORT = parseInt(process.env.PORT || '3000');
@@ -54,9 +54,10 @@ async function startServer() {
     const authMiddleware = new AuthMiddleware(JWT_SECRET);
 
     // Setup Routes
-    app.use('/api/users', setupUserRoutes(userController, authMiddleware));
+    const routes = setupUserRoutes(userController, authMiddleware);
+    app.use('/api/users', routes);
 
-    // Error handling middleware
+    // Add error handling middleware
     app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
       console.error('Unhandled error:', err);
       res.status(500).json({
