@@ -2,12 +2,13 @@ import { UserService } from '../src/services/userService';
 import { UserRepository } from '../src/repositories/userRepository';
 import KafkaProducer from '../../shared/kafka/producer';
 import { CreateUserDTO, UpdateUserDTO, UserRole, User } from '../src/types';
+import { IPostgresClient } from '../../shared/db/types';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 
 // Mock dependencies
-jest.mock('../../src/repositories/userRepository');
-jest.mock('../../../shared/kafka/producer');
+jest.mock('../src/repositories/userRepository');
+jest.mock('../../shared/kafka/producer');
 jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
 
@@ -15,6 +16,7 @@ describe('UserService', () => {
   let userService: UserService;
   let mockUserRepository: jest.Mocked<UserRepository>;
   let mockKafkaProducer: jest.Mocked<KafkaProducer>;
+  let mockDbClient: jest.Mocked<IPostgresClient>;
   const jwtSecret = 'test-secret';
   const jwtExpiry = '1h';
 
@@ -35,8 +37,16 @@ describe('UserService', () => {
     // Reset all mocks
     jest.clearAllMocks();
 
+    // Create mock PostgreSQL client
+    mockDbClient = {
+      query: jest.fn(),
+      getClient: jest.fn(),
+      transaction: jest.fn(),
+      close: jest.fn()
+    } as jest.Mocked<IPostgresClient>;
+
     // Create mock instances
-    mockUserRepository = new UserRepository(null) as jest.Mocked<UserRepository>;
+    mockUserRepository = new UserRepository(mockDbClient) as jest.Mocked<UserRepository>;
     mockKafkaProducer = new KafkaProducer() as jest.Mocked<KafkaProducer>;
 
     // Setup default mock implementations
