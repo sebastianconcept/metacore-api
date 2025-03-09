@@ -1,14 +1,13 @@
-
+import { UserService } from '../src/services/userService';
+import { UserRepository } from '../src/repositories/userRepository';
+import KafkaProducer from '../../shared/kafka/producer';
+import { CreateUserDTO, UpdateUserDTO, UserRole, User } from '../src/types';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 
-import { UserService } from '../src/services/userService';
-import { UserRepository } from '../src/repositories/useRepository';
-import { KafkaProducer } from '../src/service/userService';
-
 // Mock dependencies
-jest.mock('../src/repositories/userRepository');
-jest.mock('../src/services/userService');
+jest.mock('../../src/repositories/userRepository');
+jest.mock('../../../shared/kafka/producer');
 jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
 
@@ -16,309 +15,389 @@ describe('UserService', () => {
   let userService: UserService;
   let mockUserRepository: jest.Mocked<UserRepository>;
   let mockKafkaProducer: jest.Mocked<KafkaProducer>;
+  const jwtSecret = 'test-secret';
+  const jwtExpiry = '1h';
+
+  // Sample user data for tests
+  const testUser: User = {
+    id: '123',
+    email: 'test@example.com',
+    firstName: 'Test',
+    lastName: 'User',
+    passwordHash: 'hashed_password',
+    role: UserRole.USER,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
 
   beforeEach(() => {
-    mockUserRepository = new UserRepository() as jest.Mocked<UserRepository>;
-    mockKafkaProducer = new KafkaProducer() as jest.Mocked<KafkaProducer>;
-
-    userService = new UserService(mockUserRepository, mockKafkaProducer);
-
     // Reset all mocks
     jest.clearAllMocks();
+
+    // Create mock instances
+    mockUserRepository = new UserRepository(null) as jest.Mocked<UserRepository>;
+    mockKafkaProducer = new KafkaProducer() as jest.Mocked<KafkaProducer>;
+
+    // Setup default mock implementations
+    (mockUserRepository.findById as jest.Mock).mockResolvedValue(testUser);
+    (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(null);
+    (mockUserRepository.create as jest.Mock).mockImplementation(async (user) => ({
+      ...user,
+      id: '123',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }));
+    (mockUserRepository.update as jest.Mock).mockImplementation(async (id, data) => ({
+      ...testUser,
+      ...data,
+      updatedAt: new Date()
+    }));
+
+    // Mock bcrypt functions
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_password');
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+    // Mock JWT functions
+    (jwt.sign as jest.Mock).mockReturnValue('mock.jwt.token');
+
+    // Create UserService instance with mocked dependencies
+    userService = new UserService(
+      mockUserRepository,
+      mockKafkaProducer,
+      jwtSecret,
+      jwtExpiry
+    );
   });
 
-  describe('registerUser', () => {
-    it('should register a new user successfully', async () => {
-      // Arrange
-      const userData = {
-        email: 'test@example.com',
-        password: 'password123',
-        firstName: 'Test',
-        lastName: 'User'
-      };
-
-      const hashedPassword = 'hashed_password';
-      (bcrypt.hash as jest.Mock).mockResolvedValue(hashedPassword);
-
-      const createdUser = {
-        id: '123',
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        passwordHash: hashedPassword,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      mockUserRepository.findByEmail.mockResolvedValue(null);
-      mockUserRepository.create.mockResolvedValue(createdUser);
-      mockKafkaProducer.sendMessage.mockResolvedValue();
-
+  describe('findById', () => {
+    it('should return user by ID without password hash', async () => {
       // Act
-      const result = await userService.registerUser(userData);
+      const result = await userService.findById('123');
 
       // Assert
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(userData.email);
-      expect(bcrypt.hash).toHaveBeenCalledWith(userData.password, 10);
-      expect(mockUserRepository.create).toHaveBeenCalledWith({
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        passwordHash: hashedPassword
-      });
-      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
-        'user-events',
-        {
-          type: 'USER_CREATED',
-          data: {
-            id: createdUser.id,
-            email: createdUser.email,
-            firstName: createdUser.firstName,
-            lastName: createdUser.lastName
-          }
-        }
-      );
-      expect(result).toEqual({
-        id: createdUser.id,
-        email: createdUser.email,
-        firstName: createdUser.firstName,
-        lastName: createdUser.lastName
-      });
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('123');
+      expect(result).toEqual(expect.objectContaining({
+        id: testUser.id,
+        email: testUser.email
+      }));
+      expect(result).not.toHaveProperty('passwordHash');
     });
 
-    it('should throw an error if user already exists', async () => {
+    it('should return null if user not found', async () => {
       // Arrange
-      const userData = {
-        email: 'existing@example.com',
-        password: 'password123',
-        firstName: 'Existing',
-        lastName: 'User'
-      };
+      (mockUserRepository.findById as jest.Mock).mockResolvedValue(null);
 
-      const existingUser = {
-        id: '456',
-        email: userData.email,
-        firstName: 'Existing',
+      // Act
+      const result = await userService.findById('999');
+
+      // Assert
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('999');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByEmail', () => {
+    it('should return user by email without password hash', async () => {
+      // Arrange
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(testUser);
+
+      // Act
+      const result = await userService.findByEmail('test@example.com');
+
+      // Assert
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(result).toEqual(expect.objectContaining({
+        id: testUser.id,
+        email: testUser.email
+      }));
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('should return null if user not found', async () => {
+      // Act
+      const result = await userService.findByEmail('nonexistent@example.com');
+
+      // Assert
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('nonexistent@example.com');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('createUser', () => {
+    it('should create a new user', async () => {
+      // Arrange
+      const createUserDTO: CreateUserDTO = {
+        email: 'new@example.com',
+        passwordHash: 'hashed_password',
+        firstName: 'New',
         lastName: 'User',
-        passwordHash: 'existing_hash',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        role: UserRole.USER,
+        isActive: true
       };
 
-      mockUserRepository.findByEmail.mockResolvedValue(existingUser);
+      // Act
+      const result = await userService.createUser(createUserDTO);
+
+      // Assert
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('new@example.com');
+      expect(mockUserRepository.create).toHaveBeenCalledWith(createUserDTO);
+      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
+        'user.created',
+        expect.objectContaining({
+          id: '123',
+          email: 'new@example.com'
+        })
+      );
+      expect(result).toEqual(expect.objectContaining({
+        id: '123',
+        email: 'new@example.com'
+      }));
+      expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('should throw an error if email already exists', async () => {
+      // Arrange
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(testUser);
+      const createUserDTO: CreateUserDTO = {
+        email: 'test@example.com', // Existing email
+        passwordHash: 'password',
+        firstName: 'New',
+        lastName: 'User',
+        role: UserRole.USER,
+        isActive: true
+      };
 
       // Act & Assert
-      await expect(userService.registerUser(userData)).rejects.toThrow('User with this email already exists');
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(userData.email);
+      await expect(userService.createUser(createUserDTO)).rejects.toThrow('Email already exists');
       expect(mockUserRepository.create).not.toHaveBeenCalled();
       expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
     });
   });
 
-  describe('authenticateUser', () => {
-    it('should authenticate a user with valid credentials', async () => {
+  describe('updateUser', () => {
+    it('should update an existing user', async () => {
       // Arrange
-      const credentials = {
-        email: 'user@example.com',
-        password: 'correct_password'
+      const updateUserDTO: UpdateUserDTO = {
+        firstName: 'Updated',
+        lastName: 'Name'
       };
-
-      const user = {
-        id: '789',
-        email: credentials.email,
-        firstName: 'Auth',
-        lastName: 'User',
-        passwordHash: 'hashed_password',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      const token = 'jwt_token';
-
-      mockUserRepository.findByEmail.mockResolvedValue(user);
-      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-      (jwt.sign as jest.Mock).mockReturnValue(token);
 
       // Act
-      const result = await userService.authenticateUser(credentials);
+      const result = await userService.updateUser('123', updateUserDTO);
 
       // Assert
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(credentials.email);
-      expect(bcrypt.compare).toHaveBeenCalledWith(credentials.password, user.passwordHash);
-      expect(jwt.sign).toHaveBeenCalled();
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('123');
+      expect(mockUserRepository.update).toHaveBeenCalledWith('123', updateUserDTO);
       expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
-        'user-events',
-        {
-          type: 'USER_LOGGED_IN',
-          data: { id: user.id }
-        }
+        'user.updated',
+        expect.objectContaining({
+          userId: '123'
+        })
       );
-      expect(result).toEqual({
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName
-        }
-      });
+      expect(result).toEqual(expect.objectContaining({
+        id: '123',
+        firstName: 'Updated',
+        lastName: 'Name'
+      }));
+      expect(result).not.toHaveProperty('passwordHash');
     });
 
     it('should throw an error if user not found', async () => {
       // Arrange
-      const credentials = {
-        email: 'nonexistent@example.com',
-        password: 'password'
+      (mockUserRepository.findById as jest.Mock).mockResolvedValue(null);
+      const updateUserDTO: UpdateUserDTO = {
+        firstName: 'Updated'
       };
 
-      mockUserRepository.findByEmail.mockResolvedValue(null);
-
       // Act & Assert
-      await expect(userService.authenticateUser(credentials)).rejects.toThrow('Invalid email or password');
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(credentials.email);
-      expect(bcrypt.compare).not.toHaveBeenCalled();
-      expect(jwt.sign).not.toHaveBeenCalled();
+      await expect(userService.updateUser('999', updateUserDTO)).rejects.toThrow('User not found');
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
       expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
     });
 
-    it('should throw an error if password is incorrect', async () => {
+    it('should check email uniqueness when updating email', async () => {
       // Arrange
-      const credentials = {
-        email: 'user@example.com',
-        password: 'wrong_password'
+      const existingUser = { ...testUser, id: '456', email: 'existing@example.com' };
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(existingUser);
+
+      const updateUserDTO: UpdateUserDTO = {
+        email: 'existing@example.com' // Email already in use by another user
       };
 
-      const user = {
-        id: '789',
-        email: credentials.email,
-        firstName: 'Auth',
-        lastName: 'User',
-        passwordHash: 'hashed_password',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      // Act & Assert
+      await expect(userService.updateUser('123', updateUserDTO)).rejects.toThrow('Email already exists');
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+      expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
+    });
+  });
 
-      mockUserRepository.findByEmail.mockResolvedValue(user);
+  describe('deleteUser', () => {
+    it('should delete an existing user', async () => {
+      // Arrange
+      (mockUserRepository.delete as jest.Mock).mockResolvedValue(true);
+
+      // Act
+      const result = await userService.deleteUser('123');
+
+      // Assert
+      expect(mockUserRepository.findById).toHaveBeenCalledWith('123');
+      expect(mockUserRepository.delete).toHaveBeenCalledWith('123');
+      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
+        'user.deleted',
+        expect.objectContaining({
+          userId: '123'
+        })
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should throw an error if user not found', async () => {
+      // Arrange
+      (mockUserRepository.findById as jest.Mock).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(userService.deleteUser('999')).rejects.toThrow('User not found');
+      expect(mockUserRepository.delete).not.toHaveBeenCalled();
+      expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('should return false if delete operation fails', async () => {
+      // Arrange
+      (mockUserRepository.delete as jest.Mock).mockResolvedValue(false);
+
+      // Act
+      const result = await userService.deleteUser('123');
+
+      // Assert
+      expect(mockUserRepository.delete).toHaveBeenCalledWith('123');
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('login', () => {
+    it('should authenticate user and return token', async () => {
+      // Arrange
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(testUser);
+
+      // Act
+      const result = await userService.login({ email: 'test@example.com', password: 'password123' });
+
+      // Assert
+      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(bcrypt.compare).toHaveBeenCalledWith('password123', 'hashed_password');
+      expect(jwt.sign).toHaveBeenCalled();
+      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
+        'user.login',
+        expect.objectContaining({
+          userId: '123',
+          email: 'test@example.com'
+        })
+      );
+      expect(result).toEqual(expect.objectContaining({
+        token: 'mock.jwt.token',
+        user: expect.objectContaining({
+          id: '123',
+          email: 'test@example.com'
+        })
+      }));
+      expect(result.user).not.toHaveProperty('passwordHash');
+    });
+
+    it('should throw error for invalid credentials', async () => {
+      // Arrange
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(testUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       // Act & Assert
-      await expect(userService.authenticateUser(credentials)).rejects.toThrow('Invalid email or password');
-      expect(mockUserRepository.findByEmail).toHaveBeenCalledWith(credentials.email);
-      expect(bcrypt.compare).toHaveBeenCalledWith(credentials.password, user.passwordHash);
+      await expect(userService.login({ email: 'test@example.com', password: 'wrong' }))
+        .rejects.toThrow('Invalid email or password');
+
+      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
+        'user.login.failed',
+        expect.objectContaining({
+          email: 'test@example.com'
+        })
+      );
       expect(jwt.sign).not.toHaveBeenCalled();
+    });
+
+    it('should throw error for inactive user', async () => {
+      // Arrange
+      const inactiveUser = { ...testUser, isActive: false };
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(inactiveUser);
+
+      // Act & Assert
+      await expect(userService.login({ email: 'test@example.com', password: 'password123' }))
+        .rejects.toThrow('User account is disabled');
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(jwt.sign).not.toHaveBeenCalled();
+    });
+
+    it('should throw error for non-existent user', async () => {
+      // Arrange
+      (mockUserRepository.findByEmail as jest.Mock).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(userService.login({ email: 'nonexistent@example.com', password: 'password123' }))
+        .rejects.toThrow('Invalid email or password');
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(jwt.sign).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('changePassword', () => {
+    it('should change password successfully', async () => {
+      // Arrange
+      const userId = '123';
+      const currentPassword = 'oldPassword';
+      const newPassword = 'newPassword';
+      const hashedNewPassword = 'hashed_new_password';
+
+      (bcrypt.hash as jest.Mock).mockResolvedValue(hashedNewPassword);
+
+      // Act
+      const result = await userService.changePassword(userId, currentPassword, newPassword);
+
+      // Assert
+      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+      expect(bcrypt.compare).toHaveBeenCalledWith(currentPassword, testUser.passwordHash);
+      expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
+      expect(mockUserRepository.update).toHaveBeenCalled();
+      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
+        'user.password.changed',
+        expect.objectContaining({
+          userId: '123'
+        })
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should throw error if current password is incorrect', async () => {
+      // Arrange
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      // Act & Assert
+      await expect(userService.changePassword('123', 'wrongPassword', 'newPassword'))
+        .rejects.toThrow('Current password is incorrect');
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
       expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
     });
-  });
 
-  describe('getUserById', () => {
-    it('should return user by id', async () => {
+    it('should throw error if user not found', async () => {
       // Arrange
-      const userId = '123';
-      const user = {
-        id: userId,
-        email: 'user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        passwordHash: 'hashed_password',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      mockUserRepository.findById.mockResolvedValue(user);
-
-      // Act
-      const result = await userService.getUserById(userId);
-
-      // Assert
-      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
-      expect(result).toEqual({
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName
-      });
-    });
-
-    it('should throw an error if user not found', async () => {
-      // Arrange
-      const userId = 'nonexistent';
-
-      mockUserRepository.findById.mockResolvedValue(null);
+      (mockUserRepository.findById as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(userService.getUserById(userId)).rejects.toThrow('User not found');
-      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
-    });
-  });
+      await expect(userService.changePassword('999', 'currentPassword', 'newPassword'))
+        .rejects.toThrow('User not found');
 
-  describe('updateUser', () => {
-    it('should update user successfully', async () => {
-      // Arrange
-      const userId = '123';
-      const updateData = {
-        firstName: 'Updated',
-        lastName: 'Name'
-      };
-
-      const existingUser = {
-        id: userId,
-        email: 'user@example.com',
-        firstName: 'Original',
-        lastName: 'User',
-        passwordHash: 'hashed_password',
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      const updatedUser = {
-        ...existingUser,
-        ...updateData,
-        updatedAt: new Date()
-      };
-
-      mockUserRepository.findById.mockResolvedValue(existingUser);
-      mockUserRepository.update.mockResolvedValue(updatedUser);
-      mockKafkaProducer.sendMessage.mockResolvedValue();
-
-      // Act
-      const result = await userService.updateUser(userId, updateData);
-
-      // Assert
-      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
-      expect(mockUserRepository.update).toHaveBeenCalledWith(userId, updateData);
-      expect(mockKafkaProducer.sendMessage).toHaveBeenCalledWith(
-        'user-events',
-        {
-          type: 'USER_UPDATED',
-          data: {
-            id: updatedUser.id,
-            email: updatedUser.email,
-            firstName: updatedUser.firstName,
-            lastName: updatedUser.lastName
-          }
-        }
-      );
-      expect(result).toEqual({
-        id: updatedUser.id,
-        email: updatedUser.email,
-        firstName: updatedUser.firstName,
-        lastName: updatedUser.lastName
-      });
-    });
-
-    it('should throw an error if user not found', async () => {
-      // Arrange
-      const userId = 'nonexistent';
-      const updateData = {
-        firstName: 'Updated',
-        lastName: 'Name'
-      };
-
-      mockUserRepository.findById.mockResolvedValue(null);
-
-      // Act & Assert
-      await expect(userService.updateUser(userId, updateData)).rejects.toThrow('User not found');
-      expect(mockUserRepository.findById).toHaveBeenCalledWith(userId);
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(bcrypt.hash).not.toHaveBeenCalled();
       expect(mockUserRepository.update).not.toHaveBeenCalled();
       expect(mockKafkaProducer.sendMessage).not.toHaveBeenCalled();
     });

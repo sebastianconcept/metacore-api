@@ -184,7 +184,8 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockResponse.status).toHaveBeenCalledWith(403);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
-        message: expect.stringContaining('Insufficient permissions')
+        message: expect.stringContaining('Access denied'),
+        details: expect.stringContaining('Insufficient permissions')
       }));
       expect(nextFunction).not.toHaveBeenCalled();
     });
@@ -204,7 +205,8 @@ describe('Authentication Middleware', () => {
       // Assert
       expect(mockResponse.status).toHaveBeenCalledWith(403);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({
-        message: expect.stringContaining('Insufficient permissions')
+        message: expect.stringContaining('Access denied'),
+        details: expect.stringContaining('Insufficient permissions')
       }));
       expect(nextFunction).not.toHaveBeenCalled();
     });

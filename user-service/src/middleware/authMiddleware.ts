@@ -8,7 +8,6 @@ declare global {
   namespace Express {
     interface Request {
       user?: {
-        isActive: boolean;
         id: string;
         email: string;
         role: UserRole;
@@ -45,7 +44,6 @@ export class AuthMiddleware {
 
       const decoded = jwt.verify(token, this.jwtSecret) as {
         id: string;
-        isActive: boolean;
         email: string;
         role: UserRole;
       };
