@@ -10,7 +10,7 @@ export interface KafkaConsumerConfig extends KafkaConfig {
 }
 
 export interface KafkaProducerConfig extends KafkaConfig {
-  // Configurações específicas do produtor
+  // Producer specific configurations
 }
 
 // Definições de tipos para mensagens
@@ -42,9 +42,9 @@ export interface MessageMetadata {
   headers?: KafkaMessageHeaders;
 }
 
-// Domínios de eventos
+// Domain events
 
-// Pagamentos
+// Payments
 export interface PaymentTransactionEvent {
   transactionId: string;
   orderId: string;
@@ -67,7 +67,7 @@ export interface PaymentRefundEvent {
   metadata?: Record<string, unknown>;
 }
 
-// Vendas
+// Sales
 export interface SalesOrderEvent {
   orderId: string;
   customerId: string;
@@ -93,7 +93,7 @@ export interface CheckoutEvent {
   metadata?: Record<string, unknown>;
 }
 
-// Compras
+// Purchasing
 export interface PurchaseOrderEvent {
   orderId: string;
   supplierId: string;
@@ -123,7 +123,7 @@ export interface GoodsReceivedEvent {
   metadata?: Record<string, unknown>;
 }
 
-// Inventário
+// Inventory
 export interface StockUpdateEvent {
   productId: string;
   locationId: string;
@@ -146,7 +146,7 @@ export interface StockTransferEvent {
   metadata?: Record<string, unknown>;
 }
 
-// Cliente
+// Customers
 export interface CustomerProfileEvent {
   customerId: string;
   firstName: string;
