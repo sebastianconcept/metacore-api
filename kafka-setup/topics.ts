@@ -1,80 +1,95 @@
-import { exec } from 'child_process';
+import { Kafka } from 'kafkajs';
 
 interface KafkaTopicConfig {
-  name: string;
-  partitions: number;
+  topic: string;
+  numPartitions: number;
   replicationFactor: number;
 }
 
-// Topic list grouped by domain
+// List of topics grouped by domain
 const topics: KafkaTopicConfig[] = [
-  // Payments service topics
-  { name: 'payments.transaction.created', partitions: 3, replicationFactor: 1 },
-  { name: 'payments.transaction.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'payments.transaction.completed', partitions: 3, replicationFactor: 1 },
-  { name: 'payments.transaction.failed', partitions: 3, replicationFactor: 1 },
-  { name: 'payments.refund.created', partitions: 3, replicationFactor: 1 },
-  { name: 'payments.refund.completed', partitions: 3, replicationFactor: 1 },
+  // Payment service topics
+  { topic: 'payments.transaction.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'payments.transaction.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'payments.transaction.completed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'payments.transaction.failed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'payments.refund.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'payments.refund.completed', numPartitions: 3, replicationFactor: 1 },
 
   // Sales service topics
-  { name: 'sales.order.created', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.order.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.order.completed', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.order.cancelled', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.checkout.started', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.checkout.completed', partitions: 3, replicationFactor: 1 },
-  { name: 'sales.promotion.applied', partitions: 3, replicationFactor: 1 },
+  { topic: 'sales.order.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.order.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.order.completed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.order.cancelled', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.checkout.started', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.checkout.completed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'sales.promotion.applied', numPartitions: 3, replicationFactor: 1 },
 
   // Purchasing service topics
-  { name: 'purchasing.order.created', partitions: 3, replicationFactor: 1 },
-  { name: 'purchasing.order.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'purchasing.order.completed', partitions: 3, replicationFactor: 1 },
-  { name: 'purchasing.goods.received', partitions: 3, replicationFactor: 1 },
-  { name: 'purchasing.supplier.updated', partitions: 3, replicationFactor: 1 },
+  { topic: 'purchasing.order.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'purchasing.order.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'purchasing.order.completed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'purchasing.goods.received', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'purchasing.supplier.updated', numPartitions: 3, replicationFactor: 1 },
 
   // Inventory service topics
-  { name: 'inventory.stock.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'inventory.stock.low', partitions: 3, replicationFactor: 1 },
-  { name: 'inventory.transfer.created', partitions: 3, replicationFactor: 1 },
-  { name: 'inventory.transfer.completed', partitions: 3, replicationFactor: 1 },
-  { name: 'inventory.adjustment.created', partitions: 3, replicationFactor: 1 },
+  { topic: 'inventory.stock.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'inventory.stock.low', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'inventory.transfer.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'inventory.transfer.completed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'inventory.adjustment.created', numPartitions: 3, replicationFactor: 1 },
 
-  // Customer activity service topics 
-  { name: 'customer.profile.created', partitions: 3, replicationFactor: 1 },
-  { name: 'customer.profile.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'customer.browsing.recorded', partitions: 3, replicationFactor: 1 },
-  { name: 'customer.preference.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'customer.loyalty.points.added', partitions: 3, replicationFactor: 1 },
-  { name: 'customer.loyalty.reward.redeemed', partitions: 3, replicationFactor: 1 },
+  // Customer service topics
+  { topic: 'customer.profile.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'customer.profile.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'customer.browsing.recorded', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'customer.preference.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'customer.loyalty.points.added', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'customer.loyalty.reward.redeemed', numPartitions: 3, replicationFactor: 1 },
 
   // User service topics
-  { name: 'user.created', partitions: 3, replicationFactor: 1 },
-  { name: 'user.updated', partitions: 3, replicationFactor: 1 },
-  { name: 'user.deleted', partitions: 3, replicationFactor: 1 },
-  { name: 'user.login', partitions: 3, replicationFactor: 1 },
-  { name: 'user.login.failed', partitions: 3, replicationFactor: 1 },
-  { name: 'user.password.changed', partitions: 3, replicationFactor: 1 },
-  { name: 'user.password.reset.requested', partitions: 3, replicationFactor: 1 }
+  { topic: 'user.created', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.updated', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.deleted', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.login', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.login.failed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.password.changed', numPartitions: 3, replicationFactor: 1 },
+  { topic: 'user.password.reset.requested', numPartitions: 3, replicationFactor: 1 }
 ];
 
-// Criar cada tópico
-topics.forEach(topic => {
-  const command = `kafka-topics --create --bootstrap-server kafka:29092 --replication-factor ${topic.replicationFactor} --partitions ${topic.partitions} --topic ${topic.name} --if-not-exists`;
-
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`Erro ao criar tópico ${topic.name}: ${error.message}`);
-      return;
-    }
-
-    if (stderr) {
-      console.error(`Stderr: ${stderr}`);
-      return;
-    }
-
-    console.log(`Tópico criado com sucesso: ${topic.name}`);
-    console.log(`Stdout: ${stdout}`);
-  });
+// Connect to Kafka
+const kafka = new Kafka({
+  clientId: 'kafka-setup',
+  brokers: ['kafka:29092']
 });
 
-console.log('Script de criação de tópicos concluído');
+const admin = kafka.admin();
+
+// Create topics
+async function createTopics(): Promise<void> {
+  try {
+    console.log('Connecting to Kafka...');
+    await admin.connect();
+    console.log('Connected to Kafka');
+
+    console.log('Creating topics...');
+    await admin.createTopics({
+      topics,
+      waitForLeaders: true,
+    });
+
+    console.log('Topics created successfully');
+  } catch (error) {
+    console.error('Error creating topics:', error instanceof Error ? error.message : String(error));
+    throw error;
+  } finally {
+    await admin.disconnect();
+    console.log('Disconnected from Kafka');
+  }
+}
+
+// Run the async function
+createTopics().catch(error => {
+  console.error('Failed to create Kafka topics:', error);
+  process.exit(1);
+});
