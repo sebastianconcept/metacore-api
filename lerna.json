@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "npmClient": "npm",
+  "packages": [
+    "shared",
+    "payments-service",
+    "sales-service",
+    "purchasing-service",
+    "inventory-service",
+    "customer-activity-service",
+    "user-service"
+  ]
+}

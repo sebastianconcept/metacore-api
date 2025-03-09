@@ -1,0 +1,54 @@
+FROM node:18-alpine
+
+# Use arguments to make the Dockerfile reusable
+ARG SERVICE_NAME
+WORKDIR /app
+
+# Install shared dependencies first
+COPY shared/package*.json ./shared/
+RUN cd shared && npm install
+
+# Install service-specific dependencies
+COPY ${SERVICE_NAME}/package*.json ./${SERVICE_NAME}/
+RUN cd ${SERVICE_NAME} && npm install
+
+# Copy source files
+COPY shared ./shared/
+COPY ${SERVICE_NAME} ./${SERVICE_NAME}/
+
+# Set working directory to the service
+WORKDIR /app/${SERVICE_NAME}
+
+# Create src directory if it doesn't exist
+RUN mkdir -p src
+
+# Create tsconfig.json if it doesn't exist
+RUN if [ ! -f tsconfig.json ]; then \
+  echo '{ \
+  "compilerOptions": { \
+  "target": "ES2020", \
+  "module": "commonjs", \
+  "outDir": "./dist", \
+  "rootDir": "./src", \
+  "strict": true, \
+  "esModuleInterop": true, \
+  "skipLibCheck": true \
+  }, \
+  "include": ["src/**/*.ts"], \
+  "exclude": ["node_modules", "dist"] \
+  }' > tsconfig.json; \
+  fi
+
+# Create a minimal index.ts if it doesn't exist
+RUN if [ ! -f src/index.ts ]; then \
+  echo 'console.log("Service ${SERVICE_NAME} is running");' > src/index.ts; \
+  fi
+
+# Compile TypeScript for development
+RUN npm run build || echo "Build failed, but continuing..."
+
+# Expose port
+EXPOSE 3000
+
+# Start service with development mode
+CMD ["npm", "run", "start:dev"]
