@@ -1,6 +1,6 @@
 import KafkaProducer from '../../../shared/kafka/producer';
 import { UserRepository } from '../repositories/userRepository';
-import { User, UserDTO, CreateUserDTO, UpdateUserDTO, LoginCredentials, AuthResponse, UserRole } from '../types';
+import { User, UserDTO, CreateUserDTO, UpdateUserDTO, LoginCredentials, AuthResponse, UserRole, UserQueryParams, PaginatedResponse } from '../types';
 import bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
@@ -33,9 +33,20 @@ export class UserService {
     return user ? this.toDTO(user) : null;
   }
 
-  async findAll(limit?: number, offset?: number): Promise<UserDTO[]> {
-    const users = await this.userRepository.findAll(limit, offset);
-    return users.map((user: User) => this.toDTO(user));
+  async findAll(queryParams?: UserQueryParams): Promise<PaginatedResponse<UserDTO>> {
+    // Call repository's findAll with the query params
+    const result = await this.userRepository.findAll(queryParams);
+
+    // Map each user to a DTO
+    const userDTOs = result.items.map((user) => this.toDTO(user));
+
+    // Return paginated response with mapped DTOs
+    return {
+      items: userDTOs,
+      total: result.total,
+      limit: result.limit,
+      offset: result.offset
+    };
   }
 
   async createUser(userDto: CreateUserDTO): Promise<UserDTO> {

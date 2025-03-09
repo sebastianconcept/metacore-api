@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { UserService } from '../services/userService';
-import { CreateUserDTO, UpdateUserDTO, LoginCredentials } from '../types';
+import { CreateUserDTO, UpdateUserDTO, LoginCredentials, UserQueryParams, UserRole } from '../types';
 
 export class UserController {
   private userService: UserService;
@@ -15,8 +15,33 @@ export class UserController {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
       const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
 
-      const users = await this.userService.findAll(limit, offset);
-      res.status(200).json(users);
+      // Optional search parameter
+      const search = req.query.search ? String(req.query.search) : undefined;
+
+      // Optional role filter
+      const role = req.query.role ? String(req.query.role) as UserRole : undefined;
+
+      // Optional active status filter
+      const isActive = req.query.isActive !== undefined
+        ? req.query.isActive === 'true'
+        : undefined;
+
+      // Convert to query params
+      const queryParams: UserQueryParams = {
+        limit,
+        offset,
+        search,
+        role,
+        isActive
+      };
+
+      const paginatedUsers = await this.userService.findAll(queryParams);
+
+      res.status(200).json({
+        status: 200,
+        message: 'Users retrieved successfully',
+        data: paginatedUsers
+      });
     } catch (error) {
       res.status(500).json({
         status: 500,

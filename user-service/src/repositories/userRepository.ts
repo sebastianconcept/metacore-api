@@ -1,6 +1,6 @@
 // user-service/src/repositories/userRepository.ts
 import { IPostgresClient } from '../../../shared/db/types';
-import { User, UserRole } from '../types';
+import { PaginatedResponse, User, UserQueryParams, UserRole } from '../types';
 import { logger } from '../utils/logger';
 
 export class UserRepository {
@@ -107,6 +107,144 @@ export class UserRepository {
       return this.mapToUser(result.rows[0]);
     } catch (error) {
       logger.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
+  /**
+  * Find all users with optional filtering and pagination
+  * @param queryParams Query parameters for filtering and pagination
+  * @returns Paginated response of users
+  */
+  async findAll(queryParams?: UserQueryParams): Promise<PaginatedResponse<User>> {
+    try {
+      const limit = queryParams?.limit || 100;
+      const offset = queryParams?.offset || 0;
+
+      // Start with the base query for users
+      let queryText = 'SELECT * FROM users';
+      const queryValues: any[] = [];
+      let paramIndex = 1;
+
+      // Build the WHERE clause based on query parameters
+      const conditions: string[] = [];
+
+      // Add role filter if provided
+      if (queryParams?.role !== undefined) {
+        conditions.push(`role = $${paramIndex}`);
+        queryValues.push(queryParams.role);
+        paramIndex++;
+      }
+
+      // Add active status filter if provided
+      if (queryParams?.isActive !== undefined) {
+        conditions.push(`is_active = $${paramIndex}`);
+        queryValues.push(queryParams.isActive);
+        paramIndex++;
+      }
+
+      // Add search filter if provided (searches email, first_name, and last_name)
+      if (queryParams?.search) {
+        conditions.push(`(
+        email ILIKE $${paramIndex} OR 
+        first_name ILIKE $${paramIndex} OR 
+        last_name ILIKE $${paramIndex}
+      )`);
+        queryValues.push(`%${queryParams.search}%`);
+        paramIndex++;
+      }
+
+      // Apply WHERE clause if we have conditions
+      if (conditions.length > 0) {
+        queryText += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      // Create a copy of the query for counting total results
+      const countQueryText = queryText.replace('SELECT *', 'SELECT COUNT(*)');
+
+      // Add pagination to the main query
+      queryText += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      queryValues.push(limit, offset);
+
+      // Execute both queries in parallel
+      const [usersResult, countResult] = await Promise.all([
+        this.dbClient.query(queryText, queryValues),
+        this.dbClient.query(countQueryText, queryValues.slice(0, paramIndex - 1)) // Exclude limit and offset params
+      ]);
+
+      // Map database rows to User objects
+      const users = usersResult.rows.map(row => this.mapToUser(row));
+      const total = parseInt(countResult.rows[0].count, 10);
+
+      return {
+        items: users,
+        total,
+        limit,
+        offset
+      };
+    } catch (error) {
+      logger.error('Error finding users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Count users matching the criteria
+   * @param criteria Optional filtering criteria
+   * @returns Total count of matching users
+   */
+  async countAll(criteria?: Partial<User>): Promise<number> {
+    try {
+      // Start with the base query
+      let queryText = 'SELECT COUNT(*) as total FROM users';
+      const queryParams: any[] = [];
+      let paramIndex = 1;
+
+      // Add filtering criteria if provided
+      if (criteria) {
+        const conditions: string[] = [];
+
+        if (criteria.email !== undefined) {
+          conditions.push(`email ILIKE $${paramIndex}`);
+          queryParams.push(`%${criteria.email}%`);
+          paramIndex++;
+        }
+
+        if (criteria.firstName !== undefined) {
+          conditions.push(`first_name ILIKE $${paramIndex}`);
+          queryParams.push(`%${criteria.firstName}%`);
+          paramIndex++;
+        }
+
+        if (criteria.lastName !== undefined) {
+          conditions.push(`last_name ILIKE $${paramIndex}`);
+          queryParams.push(`%${criteria.lastName}%`);
+          paramIndex++;
+        }
+
+        if (criteria.role !== undefined) {
+          conditions.push(`role = $${paramIndex}`);
+          queryParams.push(criteria.role);
+          paramIndex++;
+        }
+
+        if (criteria.isActive !== undefined) {
+          conditions.push(`is_active = $${paramIndex}`);
+          queryParams.push(criteria.isActive);
+          paramIndex++;
+        }
+
+        if (conditions.length > 0) {
+          queryText += ' WHERE ' + conditions.join(' AND ');
+        }
+      }
+
+      // Execute the query
+      const result = await this.dbClient.query(queryText, queryParams);
+
+      return parseInt(result.rows[0].total, 10);
+    } catch (error) {
+      logger.error('Error counting users:', error);
       throw error;
     }
   }
