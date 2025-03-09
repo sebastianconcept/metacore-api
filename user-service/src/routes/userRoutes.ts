@@ -15,7 +15,7 @@ export function setupUserRoutes(
   router.post(
     '/login',
     [
-      body('username').notEmpty().withMessage('Username is required'),
+      body('email').notEmpty().withMessage('Email is required'),
       body('password').notEmpty().withMessage('Password is required'),
       validateRequest
     ],
@@ -25,9 +25,9 @@ export function setupUserRoutes(
   router.post(
     '/register',
     [
-      body('username')
-        .notEmpty().withMessage('Username is required')
-        .isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters'),
+      body('email')
+        .notEmpty().withMessage('Email is required')
+        .isLength({ min: 3, max: 30 }).withMessage('Email must be between 3 and 30 characters'),
       body('email')
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Email is not valid'),
@@ -47,9 +47,9 @@ export function setupUserRoutes(
   // User profile routes
   router.get('/me', (req, res) => {
     // Get the current user's profile using their ID from the JWT token
-    if (req.user?.userId) {
+    if (req.user?.id) {
       // Instead of creating a new request, modify the route params
-      req.params = { id: req.user.userId };
+      req.params = { id: req.user.id };
       userController.getUserById(req, res);
     } else {
       res.status(401).json({

@@ -27,8 +27,8 @@ export class UserService {
     return user ? this.toDTO(user) : null;
   }
 
-  async findByUsername(username: string): Promise<UserDTO | null> {
-    const user = await this.userRepository.findByUsername(username);
+  async findByEmail(email: string): Promise<UserDTO | null> {
+    const user = await this.userRepository.findByEmail(email);
     return user ? this.toDTO(user) : null;
   }
 
@@ -38,12 +38,7 @@ export class UserService {
   }
 
   async createUser(userDto: CreateUserDTO): Promise<UserDTO> {
-    // Check if username or email already exists
-    const existingByUsername = await this.userRepository.findByUsername(userDto.username);
-    if (existingByUsername) {
-      throw new Error('Username already exists');
-    }
-
+    // Check if user with email already exists
     const existingByEmail = await this.userRepository.findByEmail(userDto.email);
     if (existingByEmail) {
       throw new Error('Email already exists');
@@ -53,8 +48,7 @@ export class UserService {
 
     // Publish event to Kafka
     await this.kafkaProducer.sendMessage('user.created', {
-      userId: newUser.id,
-      username: newUser.username,
+      id: newUser.id,
       email: newUser.email,
       role: newUser.role,
       timestamp: new Date().toISOString()
@@ -115,26 +109,26 @@ export class UserService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const user = await this.userRepository.findByUsername(credentials.username);
+    const user = await this.userRepository.findByEmail(credentials.email);
 
     if (!user) {
-      throw new Error('Invalid username or password');
+      throw new Error('Invalid email or password');
     }
 
     if (!user.isActive) {
       throw new Error('User account is disabled');
     }
 
-    const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+    const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
 
     if (!isPasswordValid) {
       // Publish failed login attempt
       await this.kafkaProducer.sendMessage('user.login.failed', {
-        username: credentials.username,
+        email: credentials.email,
         timestamp: new Date().toISOString()
       });
 
-      throw new Error('Invalid username or password');
+      throw new Error('Invalid email or password');
     }
 
     // Generate JWT token using type assertion for the secret
@@ -142,7 +136,7 @@ export class UserService {
     const token = jwt.sign(
       {
         userId: user.id,
-        username: user.username,
+        email: user.email,
         role: user.role
       },
       this.jwtSecret,
@@ -152,7 +146,7 @@ export class UserService {
     // Publish successful login
     await this.kafkaProducer.sendMessage('user.login', {
       userId: user.id,
-      username: user.username,
+      email: user.email,
       timestamp: new Date().toISOString()
     });
 
@@ -169,7 +163,7 @@ export class UserService {
       throw new Error('User not found');
     }
 
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
 
     if (!isPasswordValid) {
       throw new Error('Current password is incorrect');
@@ -195,7 +189,7 @@ export class UserService {
 
   // Helper method to convert User to UserDTO (removing sensitive data)
   private toDTO(user: User): UserDTO {
-    const { password, ...userDTO } = user;
+    const { passwordHash, ...userDTO } = user;
     return userDTO as UserDTO;
   }
 }
