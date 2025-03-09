@@ -40,10 +40,18 @@ describe('KafkaConsumer Integration Tests', () => {
     kafkaConsumer = new KafkaConsumer({
       groupId: `test-consumer-${uuidv4()}`, // Unique group ID to avoid consumer conflicts
       clientId: 'test-consumer',
-      brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
-      handler: userService
+      brokers: [process.env.KAFKA_BROKERS || 'localhost:9092']
     });
     await kafkaConsumer.connect();
+
+    // Subscribe to the test topic
+    await kafkaConsumer.subscribeToTopic(testTopic, true);
+
+    // Add userService as the handler for the test topic
+    kafkaConsumer.addTopicHandler(testTopic, userService.handleUserEvent.bind(userService));
+
+    // Start consuming messages
+    await kafkaConsumer.startConsuming();
 
     // Wait for a bit to make sure consumer has time to initialize
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -85,7 +93,7 @@ describe('KafkaConsumer Integration Tests', () => {
       data: expect.objectContaining({
         id: userId
       })
-    }));
+    }), expect.anything()); // expect.anything() for the metadata parameter
 
     // Cleanup
     handleUserEventSpy.mockRestore();
@@ -142,12 +150,15 @@ describe('KafkaConsumer Integration Tests', () => {
     // Assert
     expect(consoleSpy).toHaveBeenCalled();
     expect(handleUserEventSpy).toHaveBeenCalledTimes(2);
-    expect(handleUserEventSpy).toHaveBeenLastCalledWith(expect.objectContaining({
-      type: 'USER_UPDATED',
-      data: expect.objectContaining({
-        id: userId2
-      })
-    }));
+    expect(handleUserEventSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: 'USER_UPDATED',
+        data: expect.objectContaining({
+          id: userId2
+        })
+      }),
+      expect.anything() // For the metadata parameter
+    );
 
     // Cleanup
     handleUserEventSpy.mockRestore();

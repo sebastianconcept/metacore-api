@@ -3,6 +3,7 @@ import { UserRepository } from '../repositories/userRepository';
 import { User, UserDTO, CreateUserDTO, UpdateUserDTO, LoginCredentials, AuthResponse } from '../types';
 import bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
+import { logger } from '../utils/logger';
 
 export class UserService {
   private userRepository: UserRepository;
@@ -191,5 +192,43 @@ export class UserService {
   private toDTO(user: User): UserDTO {
     const { passwordHash, ...userDTO } = user;
     return userDTO as UserDTO;
+  }
+
+  /**
+   * Handle user events from Kafka
+   * @param event The user event to handle
+   */
+  async handleUserEvent(event: any): Promise<void> {
+    try {
+      if (!event || !event.type) {
+        throw new Error('Invalid event format: missing type');
+      }
+
+      switch (event.type) {
+        case 'USER_CREATED':
+          // Handle user created event
+          logger.debug(`Handling USER_CREATED event for user ${event.data?.id}`);
+          // Implementation would go here
+          break;
+
+        case 'USER_UPDATED':
+          // Handle user updated event
+          logger.debug(`Handling USER_UPDATED event for user ${event.data?.id}`);
+          // Implementation would go here
+          break;
+
+        case 'USER_DELETED':
+          // Handle user deleted event
+          logger.debug(`Handling USER_DELETED event for user ${event.data?.id}`);
+          // Implementation would go here
+          break;
+
+        default:
+          logger.warn(`Unhandled event type: ${event.type}`);
+      }
+    } catch (error) {
+      logger.error('Error handling user event:', error);
+      throw error;
+    }
   }
 }

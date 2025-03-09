@@ -47,8 +47,8 @@ export interface IUserController {
  */
 export interface AuthenticatedRequest extends Request {
   user?: {
-    userId: string;
-    username: string;
+    id: string;
+    email: string;
     role: UserRole;
   };
 }

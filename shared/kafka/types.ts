@@ -7,6 +7,7 @@ export interface KafkaConfig {
 export interface KafkaConsumerConfig extends KafkaConfig {
   groupId: string;
   fromBeginning?: boolean;
+  handler?: MessageHandler;
 }
 
 export interface KafkaProducerConfig extends KafkaConfig {

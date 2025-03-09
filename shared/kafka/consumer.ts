@@ -14,11 +14,17 @@ class KafkaConsumer {
   private consumer: Consumer;
   private isConnected: boolean = false;
   private eventHandlers = new Map<string, MessageHandler>();
+  private defaultHandler?: MessageHandler;
 
   constructor(config?: Partial<KafkaConsumerConfig>) {
     const brokers = config?.brokers || process.env.KAFKA_BROKERS?.split(',') || [];
     const clientId = config?.clientId || `consumer-${process.env.SERVICE_NAME || 'generic'}`;
     const groupId = config?.groupId || `${process.env.SERVICE_NAME || 'generic'}-group`;
+
+    // Store the default handler if provided
+    if (config?.handler) {
+      this.defaultHandler = config.handler;
+    }
 
     this.kafka = new Kafka({
       clientId,
@@ -77,7 +83,7 @@ class KafkaConsumer {
       if (this.isConnected) {
         try {
           await this.consumer.stop();
-          // Recriar subscrições sem o tópico removido
+          // Resubscribe to all topics except the removed one
           for (const topic of this.eventHandlers.keys()) {
             await this.subscribeToTopic(topic);
           }
@@ -126,7 +132,8 @@ class KafkaConsumer {
     partition: number;
     message: KafkaMessage;
   }): Promise<void> {
-    const handler = this.eventHandlers.get(topic);
+    // First check if there's a specific handler for this topic
+    const handler = this.eventHandlers.get(topic) || this.defaultHandler;
 
     if (!handler) {
       logger.warn(`No handler found for topic: ${topic}`);

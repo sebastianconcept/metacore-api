@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 
 // Define the User entity interface
 export interface User {
+  isActive: boolean;
   id: string;
   email: string;
   firstName: string;
@@ -50,6 +51,7 @@ export class UserRepository {
             last_name VARCHAR(100) NOT NULL,
             password_hash VARCHAR(255) NOT NULL,
             role VARCHAR(50) DEFAULT 'user',
+            is_active BOOL DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           );
@@ -206,6 +208,7 @@ export class UserRepository {
       lastName: row.last_name,
       passwordHash: row.password_hash,
       role: row.role,
+      isActive: row.is_active,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
