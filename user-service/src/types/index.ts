@@ -1,9 +1,16 @@
+// Export all types from this directory
+export * from './controllers';
+export * from './middleware';
+export * from './repositories';
+export * from './services';
+
+// Base types
+
 // User-related interfaces
 export interface User {
   id: string;
-  username: string;
   email: string;
-  password: string; // hashed password. SENSITIVE - not exposed to client
+  passwordHash: string; // Hashed password
   firstName: string;
   lastName: string;
   role: UserRole;
@@ -18,10 +25,9 @@ export enum UserRole {
   MANAGER = 'manager'
 }
 
-// This is the UserDTO - safe to send to client
+// Data Transfer Objects (DTOs)
 export interface UserDTO {
   id: string;
-  username: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -32,9 +38,8 @@ export interface UserDTO {
 }
 
 export interface CreateUserDTO {
-  username: string;
   email: string;
-  password: string;
+  passwordHash: string;
   firstName: string;
   lastName: string;
   role?: UserRole;
@@ -48,8 +53,9 @@ export interface UpdateUserDTO {
   isActive?: boolean;
 }
 
+// Authentication related interfaces
 export interface LoginCredentials {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -58,9 +64,87 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface JwtPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+  iat?: number;
+  exp?: number;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+// Query related interfaces
+export interface UserQueryParams {
+  limit?: number;
+  offset?: number;
+  role?: UserRole;
+  isActive?: boolean;
+  search?: string;
+}
+
+// Repository related interfaces
+export interface UserRepositoryOptions {
+  schemaName?: string;
+}
+
+// Event related interfaces
+export interface UserCreatedEvent {
+  userId: string;
+  email: string;
+  role: UserRole;
+  timestamp: string;
+}
+
+export interface UserUpdatedEvent {
+  userId: string;
+  email?: string;
+  role?: UserRole;
+  isActive?: boolean;
+  timestamp: string;
+}
+
+export interface UserDeletedEvent {
+  userId: string;
+  timestamp: string;
+}
+
+export interface UserLoginEvent {
+  userId: string;
+  email: string;
+  timestamp: string;
+}
+
+export interface UserLoginFailedEvent {
+  email: string;
+  timestamp: string;
+}
+
+export interface UserPasswordChangedEvent {
+  userId: string;
+  timestamp: string;
+}
+
 // Error interfaces
 export interface ApiError {
   status: number;
   message: string;
-  details?: string;
+  details?: string | string[] | Record<string, any>;
+}
+
+// Response interfaces
+export interface ApiResponse<T> {
+  status: number;
+  message: string;
+  data?: T;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
 }

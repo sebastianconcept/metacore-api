@@ -148,7 +148,7 @@ export class UserController {
       res.status(401).json({
         status: 401,
         message: 'Authentication failed',
-        details: 'Invalid username or password'
+        details: 'Invalid email or password'
       });
     }
   };
@@ -158,7 +158,7 @@ export class UserController {
     try {
       const { currentPassword, newPassword } = req.body;
       // userId should come from the authenticated JWT token
-      const userId = req.user?.userId;
+      const userId = req.user?.id;
 
       if (!userId) {
         res.status(401).json({ status: 401, message: 'Authentication required' });

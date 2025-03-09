@@ -1,13 +1,32 @@
 {
   "version": "1.0.0",
   "npmClient": "npm",
+  "useWorkspaces": true,
   "packages": [
     "shared",
+    "api-gateway",
     "payments-service",
     "sales-service",
     "purchasing-service",
     "inventory-service",
     "customer-activity-service",
     "user-service"
-  ]
+  ],
+  "command": {
+    "publish": {
+      "ignoreChanges": [
+        "*.md",
+        "**/*.test.ts",
+        "**/*.spec.ts"
+      ],
+      "message": "chore(release): publish %s"
+    },
+    "version": {
+      "conventionalCommits": true,
+      "changelogPreset": "angular"
+    },
+    "run": {
+      "stream": true
+    }
+  }
 }

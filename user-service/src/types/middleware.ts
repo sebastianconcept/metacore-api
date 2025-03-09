@@ -1,20 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole } from '../types';
-import { UserInfo } from 'os';
-
-// Extend Express Request interface to include user info
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        email: string;
-        role: UserRole;
-      };
-    }
-  }
-}
 
 export class AuthMiddleware {
   private jwtSecret: string;
@@ -48,7 +34,7 @@ export class AuthMiddleware {
         role: UserRole;
       };
 
-      // Attach user info to request object
+      // Attach user info to the Express request extended object
       req.user = decoded;
 
       next();
