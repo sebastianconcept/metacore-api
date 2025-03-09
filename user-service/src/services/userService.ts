@@ -35,7 +35,7 @@ export class UserService {
 
   async findAll(limit?: number, offset?: number): Promise<UserDTO[]> {
     const users = await this.userRepository.findAll(limit, offset);
-    return users.map(user => this.toDTO(user));
+    return users.map((user: User) => this.toDTO(user));
   }
 
   async createUser(userDto: CreateUserDTO): Promise<UserDTO> {
@@ -195,7 +195,7 @@ export class UserService {
     // Ensure role is always defined in the DTO
     return {
       ...userDTO,
-      role: user.role
+      role: user.role || UserRole.USER,
     } as UserDTO;
   }
 

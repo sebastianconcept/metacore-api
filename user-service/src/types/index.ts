@@ -42,7 +42,8 @@ export interface CreateUserDTO {
   passwordHash: string;
   firstName: string;
   lastName: string;
-  role?: UserRole;
+  role: UserRole;
+  isActive: boolean;
 }
 
 export interface UpdateUserDTO {

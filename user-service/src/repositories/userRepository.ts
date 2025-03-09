@@ -1,20 +1,7 @@
 // user-service/src/repositories/userRepository.ts
 import { IPostgresClient } from '../../../shared/db/types';
-import { UserRole } from '../types';
+import { User, UserRole } from '../types';
 import { logger } from '../utils/logger';
-
-// Define the User entity interface
-export interface User {
-  isActive: boolean;
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  passwordHash: string;
-  role?: UserRole;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export class UserRepository {
   private readonly dbClient: IPostgresClient;
@@ -136,6 +123,12 @@ export class UserRepository {
       const updates: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
+
+      if (userData.isActive !== undefined) {
+        updates.push(`is_active = $${paramIndex}`);
+        values.push(userData.isActive);
+        paramIndex++;
+      }
 
       if (userData.email !== undefined) {
         updates.push(`email = $${paramIndex}`);
