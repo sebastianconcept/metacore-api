@@ -11,6 +11,7 @@ import { getPostgresClient } from '../../../shared/db/client';
  */
 export interface UserInfo {
   id: string;
+  isActive: boolean;
   email: string;
   role: UserRole;
 }
@@ -64,6 +65,7 @@ export class RoleMiddleware {
       // Add the user to the request object
       req.user = {
         id: user.id,
+        isActive: user.isActive,
         email: user.email,
         role: user.role || UserRole.USER // Default to USER if no role is set
       };
@@ -116,6 +118,11 @@ export class RoleMiddleware {
     return (req: Request, res: Response, next: NextFunction) => {
       // Check if user exists and authenticate middleware has been called
       if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      // Check if user was deactivated
+      if (!req.user?.isActive) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 

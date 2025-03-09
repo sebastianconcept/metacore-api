@@ -1,6 +1,6 @@
 import KafkaProducer from '../../../shared/kafka/producer';
 import { UserRepository } from '../repositories/userRepository';
-import { User, UserDTO, CreateUserDTO, UpdateUserDTO, LoginCredentials, AuthResponse } from '../types';
+import { User, UserDTO, CreateUserDTO, UpdateUserDTO, LoginCredentials, AuthResponse, UserRole } from '../types';
 import bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
@@ -191,7 +191,12 @@ export class UserService {
   // Helper method to convert User to UserDTO (removing sensitive data)
   private toDTO(user: User): UserDTO {
     const { passwordHash, ...userDTO } = user;
-    return userDTO as UserDTO;
+
+    // Ensure role is always defined in the DTO
+    return {
+      ...userDTO,
+      role: user.role
+    } as UserDTO;
   }
 
   /**
