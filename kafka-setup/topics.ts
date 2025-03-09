@@ -1,4 +1,8 @@
 import { Kafka } from 'kafkajs';
+import { createLogger } from '../shared/utils/logger';
+
+// Initialize logger
+const logger = createLogger('kafka-setup');
 
 interface KafkaTopicConfig {
   topic: string;
@@ -68,28 +72,28 @@ const admin = kafka.admin();
 // Create topics
 async function createTopics(): Promise<void> {
   try {
-    console.log('Connecting to Kafka...');
+    logger.info('Connecting to Kafka...');
     await admin.connect();
-    console.log('Connected to Kafka');
+    logger.info('Connected to Kafka');
 
-    console.log('Creating topics...');
+    logger.info('Creating topics...');
     await admin.createTopics({
       topics,
       waitForLeaders: true,
     });
 
-    console.log('Topics created successfully');
+    logger.info('Topics created successfully');
   } catch (error) {
-    console.error('Error creating topics:', error instanceof Error ? error.message : String(error));
+    logger.error('Error creating topics:', error instanceof Error ? error.message : String(error));
     throw error;
   } finally {
     await admin.disconnect();
-    console.log('Disconnected from Kafka');
+    logger.info('Disconnected from Kafka');
   }
 }
 
 // Run the async function
 createTopics().catch(error => {
-  console.error('Failed to create Kafka topics:', error);
+  logger.error('Failed to create Kafka topics:', error);
   process.exit(1);
 });

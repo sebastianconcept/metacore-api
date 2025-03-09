@@ -1,9 +1,7 @@
 // shared/src/utils/logger.ts
 import * as winston from 'winston';
-// Import the transport classes directly
 import TransportStream from 'winston-transport';
-// Import Express types
-import { Request, Response, NextFunction } from 'express';
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
 
 /**
  * Configure log levels
@@ -111,7 +109,7 @@ export const createLogger = (serviceName: string) => {
  * @param serviceLogger The logger instance to use
  * @returns Express middleware function for HTTP logging
  */
-export const createHttpLoggerMiddleware = (serviceLogger: winston.Logger) => {
+export const createHttpLoggerMiddleware = (serviceLogger: winston.Logger): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
     res.on('finish', () => {

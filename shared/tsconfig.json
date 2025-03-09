@@ -5,13 +5,13 @@
     "lib": ["ES2020"],
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": "../../",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../user-service/src/middlewareHelpers.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

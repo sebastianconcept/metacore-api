@@ -2,8 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import type { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
-import { Request, Response, NextFunction } from 'express';
+import { createLogger, createHttpLoggerMiddleware } from '../../shared/utils/logger';
+
+// Initialize logger
+const logger = createLogger('api-gateway');
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3000');
@@ -32,17 +36,8 @@ const limiter = rateLimit({
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
+app.use(createHttpLoggerMiddleware(logger));
 app.use(limiter);
-
-// Logging middleware
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
-  });
-  next();
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -51,7 +46,7 @@ app.get('/health', (req, res) => {
 
 // Error handling middleware
 const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error in API Gateway:', err);
+  logger.error('Error in API Gateway:', err);
   res.status(500).json({
     status: 500,
     message: 'Internal Server Error',
@@ -67,7 +62,7 @@ app.use('/api/users', createProxyMiddleware({
   changeOrigin: true,
   logLevel: 'debug',
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`Proxying request to user service: ${req.method} ${req.url}`);
+    logger.debug(`Proxying request to user service: ${req.method} ${req.url}`);
 
     // If there's a request body, handle it properly
     if (req.body) {
@@ -78,10 +73,10 @@ app.use('/api/users', createProxyMiddleware({
     }
   },
   onProxyRes: (proxyRes, req, res) => {
-    console.log(`Received response from user service: ${proxyRes.statusCode}`);
+    logger.debug(`Received response from user service: ${proxyRes.statusCode}`);
   },
   onError: (err, req, res) => {
-    console.error('Proxy error:', err);
+    logger.error('Proxy error:', err);
     res.status(503).json({
       status: 503,
       message: 'User Service Unavailable',
@@ -176,5 +171,5 @@ app.use(errorHandler);
 
 // Start server
 app.listen(PORT, HOST, () => {
-  console.log(`API Gateway running on http://${HOST}:${PORT}`);
+  logger.info(`API Gateway running on http://${HOST}:${PORT}`);
 });

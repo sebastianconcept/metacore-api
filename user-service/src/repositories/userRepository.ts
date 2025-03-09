@@ -1,6 +1,7 @@
 // user-service/src/repositories/userRepository.ts
 import { IPostgresClient } from '../../../shared/db/types';
 import { UserRole } from '../types';
+import { logger } from '../utils/logger';
 
 // Define the User entity interface
 export interface User {
@@ -21,6 +22,54 @@ export class UserRepository {
     this.dbClient = dbClient;
   }
 
+  /**
+   * Initialize the repository - creates tables if they don't exist
+   */
+  async initialize(): Promise<void> {
+    try {
+      // Check if users table exists
+      const tableCheck = await this.dbClient.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public'
+          AND table_name = 'users'
+        );
+      `);
+
+      const tableExists = tableCheck.rows[0]?.exists || false;
+
+      if (!tableExists) {
+        logger.info('Creating users table...');
+
+        // Create users table
+        await this.dbClient.query(`
+          CREATE TABLE users (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email VARCHAR(255) UNIQUE NOT NULL,
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            role VARCHAR(50) DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+
+        // Create index on email for faster lookups
+        await this.dbClient.query(`
+          CREATE INDEX idx_users_email ON users(email);
+        `);
+
+        logger.info('Users table created successfully');
+      } else {
+        logger.info('Users table already exists');
+      }
+    } catch (error) {
+      logger.error('Error initializing user repository:', error);
+      throw error;
+    }
+  }
+
   async findById(id: string): Promise<User | null> {
     try {
       const result = await this.dbClient.query(
@@ -34,7 +83,7 @@ export class UserRepository {
 
       return this.mapToUser(result.rows[0]);
     } catch (error) {
-      console.error('Error finding user by ID:', error);
+      logger.error('Error finding user by ID:', error);
       throw error;
     }
   }
@@ -52,7 +101,7 @@ export class UserRepository {
 
       return this.mapToUser(result.rows[0]);
     } catch (error) {
-      console.error('Error finding user by email:', error);
+      logger.error('Error finding user by email:', error);
       throw error;
     }
   }
@@ -68,7 +117,7 @@ export class UserRepository {
 
       return this.mapToUser(result.rows[0]);
     } catch (error) {
-      console.error('Error creating user:', error);
+      logger.error('Error creating user:', error);
       throw error;
     }
   }
@@ -129,7 +178,7 @@ export class UserRepository {
 
       return this.mapToUser(result.rows[0]);
     } catch (error) {
-      console.error('Error updating user:', error);
+      logger.error('Error updating user:', error);
       throw error;
     }
   }
@@ -141,10 +190,9 @@ export class UserRepository {
         [id]
       );
 
-      // Handle null/undefined rowCount by using optional chaining and nullish coalescing
       return (result.rowCount ?? 0) > 0;
     } catch (error) {
-      console.error('Error deleting user:', error);
+      logger.error('Error deleting user:', error);
       throw error;
     }
   }

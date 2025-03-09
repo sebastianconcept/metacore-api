@@ -4,6 +4,10 @@ import {
   KafkaMessageHeaders,
   TopicMessage
 } from './types';
+import { createLogger } from '../utils/logger';
+
+// Initialize logger
+const logger = createLogger('kafka-producer');
 
 class KafkaProducer {
   private kafka: Kafka;
@@ -24,7 +28,7 @@ class KafkaProducer {
     });
 
     this.producer = this.kafka.producer();
-    console.log(`KafkaProducer initialized with clientId: ${clientId}`);
+    logger.info(`KafkaProducer initialized with clientId: ${clientId}`);
   }
 
   async connect(): Promise<void> {
@@ -32,9 +36,9 @@ class KafkaProducer {
       try {
         await this.producer.connect();
         this.isConnected = true;
-        console.log('Kafka producer successfully connected');
+        logger.info('Kafka producer successfully connected');
       } catch (error) {
-        console.error('Erro ao conectar o produtor Kafka', error);
+        logger.error('Error connecting Kafka producer', error);
         throw error;
       }
     }
@@ -45,9 +49,9 @@ class KafkaProducer {
       try {
         await this.producer.disconnect();
         this.isConnected = false;
-        console.log('Produtor Kafka desconectado com sucesso');
+        logger.info('Kafka producer successfully disconnected');
       } catch (error) {
-        console.error('Erro ao desconectar o produtor Kafka', error);
+        logger.error('Error disconnecting Kafka producer', error);
         throw error;
       }
     }
@@ -83,10 +87,10 @@ class KafkaProducer {
         messages: [kafkaMessage],
       });
 
-      console.log(`Mensagem enviada para o tópico ${topic}`, { key, metadata });
+      logger.debug(`Message sent to topic ${topic}`, { key, metadata });
       return metadata;
     } catch (error) {
-      console.error(`Erro ao enviar mensagem para o tópico ${topic}`, error);
+      logger.error(`Error sending message to topic ${topic}`, error);
       throw error;
     }
   }
@@ -115,10 +119,10 @@ class KafkaProducer {
 
       // Enviando o lote
       const metadata = await this.producer.sendBatch({ topicMessages: messages });
-      console.log('Message batch successfully sent', metadata);
+      logger.debug('Message batch successfully sent', metadata);
       return metadata;
     } catch (error) {
-      console.error('Error while sending messages batch', error);
+      logger.error('Error while sending messages batch', error);
       throw error;
     }
   }

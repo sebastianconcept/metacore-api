@@ -1,3 +1,4 @@
+// user-service/src/index.ts
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -8,6 +9,9 @@ import { AuthMiddleware } from './middleware/authMiddleware';
 import { setupUserRoutes } from './routes/userRoutes';
 import KafkaProducer from '../../shared/kafka/producer';
 import PostgresClient from '../../shared/db/postgres';
+import { httpLogger, notFoundHandler } from './utils/middlewareHelpers';
+import { logger } from './utils/logger';
+import { errorHandler } from './middleware/errorHandler';
 
 // Load environment variables
 const PORT = parseInt(process.env.PORT || '3000');
@@ -18,13 +22,14 @@ const KAFKA_BROKERS = process.env.KAFKA_BROKERS?.split(',') || ['localhost:9092'
 // Initialize Express
 const app = express();
 
-// Middleware
+// Basic Middleware
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
+app.use(httpLogger);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (req: express.Request, res: express.Response) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
@@ -57,31 +62,27 @@ async function startServer() {
     const routes = setupUserRoutes(userController, authMiddleware);
     app.use('/api/users', routes);
 
+    // Add 404 handler for undefined routes
+    app.use(notFoundHandler);
+
     // Add error handling middleware
-    app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error('Unhandled error:', err);
-      res.status(500).json({
-        status: 500,
-        message: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    });
+    app.use(errorHandler);
 
     // Start server
     app.listen(PORT, HOST, () => {
-      console.log(`User Service running on http://${HOST}:${PORT}`);
+      logger.info(`User Service running on http://${HOST}:${PORT}`);
     });
 
     // Setup graceful shutdown
     process.on('SIGTERM', async () => {
-      console.log('SIGTERM signal received, closing connections...');
+      logger.info('SIGTERM signal received, closing connections...');
       await kafkaProducer.disconnect();
       await db.close();
       process.exit(0);
     });
 
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 }

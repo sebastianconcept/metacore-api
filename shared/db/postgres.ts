@@ -1,5 +1,9 @@
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { IPostgresClient, PostgresConfig, QueryParams } from './types';
+import { createLogger } from '../utils/logger';
+
+// Initialize logger
+const logger = createLogger('postgres-client');
 
 class PostgresClient implements IPostgresClient {
   private readonly pool: Pool;
@@ -11,16 +15,16 @@ class PostgresClient implements IPostgresClient {
       user: config?.user || process.env.POSTGRES_USER,
       password: config?.password || process.env.POSTGRES_PASSWORD,
       database: config?.database || process.env.POSTGRES_DB,
-      max: config?.max || 20, // máximo de conexões no pool
+      max: config?.max || 20, // Max pool connections
       idleTimeoutMillis: config?.idleTimeoutMillis || 30000,
       connectionTimeoutMillis: config?.connectionTimeoutMillis || 2000,
     });
 
     this.pool.on('error', (err: Error) => {
-      console.error('Unexpected error in PostgreSQL client', err);
+      logger.error('Unexpected error in PostgreSQL client', err);
     });
 
-    console.log('PostgreSQL client initialized');
+    logger.info('PostgreSQL client initialized');
   }
 
   async query<T extends QueryResultRow = any>(textOrParams: string | QueryParams, params?: any[]): Promise<QueryResult<T>> {
@@ -39,10 +43,10 @@ class PostgresClient implements IPostgresClient {
     try {
       const res = await this.pool.query<T>(text, queryParams);
       const duration = Date.now() - start;
-      console.log('Query executed', { text, duration, rows: res.rowCount });
+      logger.debug('Query executed', { text, duration, rows: res.rowCount });
       return res;
     } catch (error) {
-      console.error('Error executing query', { text, error });
+      logger.error('Error executing query', { text, error });
       throw error;
     }
   }
@@ -52,13 +56,13 @@ class PostgresClient implements IPostgresClient {
     const originalQuery = client.query;
     const originalRelease = client.release;
 
-    // Define um método de consulta monitorado
+    // Delayed queries monitoring
     const timeoutId = setTimeout(() => {
-      console.error('A client kept verifying for more than 5 seconds!');
-      console.error(`Executed query: ${(client as any).lastQuery}`);
+      logger.error('A client kept querying for more than 5 seconds!');
+      logger.error(`Executed query: ${(client as any).lastQuery}`);
     }, 5000);
 
-    // Usamos cast para any para evitar problemas de tipo
+    // Bypass type check
     const clientAny = client as any;
     clientAny.query = function () {
       clientAny.lastQuery = arguments;
@@ -92,7 +96,7 @@ class PostgresClient implements IPostgresClient {
 
   async close(): Promise<void> {
     await this.pool.end();
-    console.log('PostgreSQL connection closed');
+    logger.info('PostgreSQL connection closed');
   }
 }
 

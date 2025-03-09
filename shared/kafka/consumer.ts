@@ -4,6 +4,10 @@ import {
   MessageHandler,
   MessageMetadata
 } from './types';
+import { createLogger } from '../utils/logger';
+
+// Initialize logger
+const logger = createLogger('kafka-consumer');
 
 class KafkaConsumer {
   private kafka: Kafka;
@@ -33,7 +37,7 @@ class KafkaConsumer {
       maxWaitTimeInMs: 1000
     });
 
-    console.log(`KafkaConsumer initialized with clientId: ${clientId}, groupId: ${groupId}`);
+    logger.info(`KafkaConsumer initialized with clientId: ${clientId}, groupId: ${groupId}`);
   }
 
   async connect(): Promise<void> {
@@ -41,9 +45,9 @@ class KafkaConsumer {
       try {
         await this.consumer.connect();
         this.isConnected = true;
-        console.log('Kafka consumer successfully connected');
+        logger.info('Kafka consumer successfully connected');
       } catch (error) {
-        console.error('Error while connecting Kafka consumer', error);
+        logger.error('Error while connecting Kafka consumer', error);
         throw error;
       }
     }
@@ -54,9 +58,9 @@ class KafkaConsumer {
       try {
         await this.consumer.disconnect();
         this.isConnected = false;
-        console.log('Kafka consumer successfully disconnected');
+        logger.info('Kafka consumer successfully disconnected');
       } catch (error) {
-        console.error('Error while disconnecting Kafka consumer', error);
+        logger.error('Error while disconnecting Kafka consumer', error);
         throw error;
       }
     }
@@ -64,7 +68,7 @@ class KafkaConsumer {
 
   addTopicHandler<T = any>(topic: string, handler: MessageHandler<T>): void {
     this.eventHandlers.set(topic, handler as MessageHandler);
-    console.log(`Handler added for topic: ${topic}`);
+    logger.info(`Handler added for topic: ${topic}`);
   }
 
   async removeTopicHandler(topic: string): Promise<void> {
@@ -79,11 +83,11 @@ class KafkaConsumer {
           }
           await this.consumer.run({ eachMessage: this.processMessage.bind(this) });
         } catch (error) {
-          console.error(`Error while removing topic handler for ${topic}`, error);
+          logger.error(`Error while removing topic handler for ${topic}`, error);
           throw error;
         }
       }
-      console.log(`Handler successfully removed for topic: ${topic}`);
+      logger.info(`Handler successfully removed for topic: ${topic}`);
     }
   }
 
@@ -94,9 +98,9 @@ class KafkaConsumer {
 
     try {
       await this.consumer.subscribe({ topic, fromBeginning });
-      console.log(`Subscribed to topic: ${topic}, fromBeginning: ${fromBeginning}`);
+      logger.info(`Subscribed to topic: ${topic}, fromBeginning: ${fromBeginning}`);
     } catch (error) {
-      console.error(`Error while trying to subscribe to topic ${topic}`, error);
+      logger.error(`Error while trying to subscribe to topic ${topic}`, error);
       throw error;
     }
   }
@@ -110,9 +114,9 @@ class KafkaConsumer {
       await this.consumer.run({
         eachMessage: this.processMessage.bind(this),
       });
-      console.log('Kafka consumer started');
+      logger.info('Kafka consumer started');
     } catch (error) {
-      console.error('Error starting Kafka consumer', error);
+      logger.error('Error starting Kafka consumer', error);
       throw error;
     }
   }
@@ -125,7 +129,7 @@ class KafkaConsumer {
     const handler = this.eventHandlers.get(topic);
 
     if (!handler) {
-      console.warn(`No handler found for topic: ${topic}`);
+      logger.warn(`No handler found for topic: ${topic}`);
       return;
     }
 
@@ -156,7 +160,7 @@ class KafkaConsumer {
       // Process message
       await handler(data, metadata);
     } catch (error) {
-      console.error(`Error while processing message in topic ${topic}`, error);
+      logger.error(`Error while processing message in topic ${topic}`, error);
       // Here you might want to implement a dead-letter queue or a retry mechanism
     }
   }

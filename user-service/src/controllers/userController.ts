@@ -190,3 +190,13 @@ export class UserController {
     }
   };
 }
+
+
+// Error example that will be handled:
+
+// if (!user) {
+//   const error = new Error('User not found') as AppError;
+//   error.status = 404;
+//   error.code = 'USER_NOT_FOUND';
+//   throw error;
+// }
