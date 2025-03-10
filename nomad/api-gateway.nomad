@@ -1,5 +1,3 @@
-// api-gateway.nomad - Job for the API Gateway service
-
 // Include base configuration
 include {
   path = "base.nomad"
@@ -9,7 +7,7 @@ include {
 locals {
   service_name = "api-gateway"
   service_port = 4000
-  docker_image = "microservices-architecture/api-gateway:${var.image_tag}"
+  docker_image = "metacore-api/api-gateway:${var.image_tag}"
   
   environment_vars = {
     SERVICE_NAME: "api-gateway",
@@ -21,7 +19,12 @@ locals {
     INVENTORY_SERVICE_URL: "http://inventory-service.service.consul:3000",
     CUSTOMER_SERVICE_URL: "http://customer-activity-service.service.consul:3000",
     USER_SERVICE_URL: "http://user-service.service.consul:3000",
-    LOG_LEVEL: "info"
+    LOG_LEVEL: "info",
+    RUST_LOG: "info",
+    JWT_SECRET: "${var.jwt_secret}",
+    AUTH_EXPIRY: "86400",  // 24 hours in seconds
+    RATE_LIMIT_WINDOW_MS: "900000",  // 15 minutes
+    RATE_LIMIT_MAX: "1000"  // Maximum requests per window
   }
 }
 
@@ -35,6 +38,13 @@ variable "image_tag" {
 variable "environment" {
   type    = string
   default = "production"
+}
+
+// Secret variables
+variable "jwt_secret" {
+  type    = string
+  default = "prod-jwt-secret"
+  description = "Secret key for JWT token generation and validation"
 }
 
 // Parameters for the base configuration
@@ -94,14 +104,6 @@ job "api-gateway" {
         path     = "/health"
         interval = "10s"
         timeout  = "2s"
-      }
-    }
-    
-    // Add environment variables for rate limiting
-    task "app" {
-      env {
-        RATE_LIMIT_WINDOW_MS = "900000"  // 15 minutes
-        RATE_LIMIT_MAX = "1000"          // Maximum requests per window
       }
     }
   }

@@ -78,34 +78,69 @@ services:
       retries: 5
 
   # API Gateway
+  # api-gateway:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.dev
+  #     args:
+  #       SERVICE_NAME: api-gateway
+  #   ports:
+  #     - "4000:3000"
+  #   environment:
+  #     NODE_ENV: development
+  #     PORT: 3000
+  #     SERVICE_NAME: api-gateway
+  #     PAYMENTS_SERVICE_URL: http://payments-service:3000
+  #     SALES_SERVICE_URL: http://sales-service:3000
+  #     PURCHASING_SERVICE_URL: http://purchasing-service:3000
+  #     INVENTORY_SERVICE_URL: http://inventory-service:3000
+  #     CUSTOMER_SERVICE_URL: http://customer-activity-service:3000
+  #     USER_SERVICE_URL: http://user-service:3000
+  #     LOG_LEVEL: debug
+  #   volumes:
+  #     - ./api-gateway:/app/api-gateway
+  #     - ./shared:/app/shared
+  #     - /app/api-gateway/node_modules
+  #     - /app/shared/node_modules
+  #   depends_on:
+  #     - user-service
+  #   networks:
+  #     - microservices-network
+
+  # API Gateway (Rust version)
   api-gateway:
     build:
-      context: .
-      dockerfile: Dockerfile.dev
-      args:
-        SERVICE_NAME: api-gateway
+      context: ./api-gateway
+      dockerfile: Dockerfile
     ports:
       - "4000:3000"
     environment:
-      NODE_ENV: development
+      RUST_LOG: debug
       PORT: 3000
-      SERVICE_NAME: api-gateway
+      HOST: 0.0.0.0
+      USER_SERVICE_URL: http://user-service:3000
       PAYMENTS_SERVICE_URL: http://payments-service:3000
       SALES_SERVICE_URL: http://sales-service:3000
       PURCHASING_SERVICE_URL: http://purchasing-service:3000
       INVENTORY_SERVICE_URL: http://inventory-service:3000
       CUSTOMER_SERVICE_URL: http://customer-activity-service:3000
-      USER_SERVICE_URL: http://user-service:3000
-      LOG_LEVEL: debug
-    volumes:
-      - ./api-gateway:/app/api-gateway
-      - ./shared:/app/shared
-      - /app/api-gateway/node_modules
-      - /app/shared/node_modules
+      NODE_ENV: development
+      ROCKET_ADDRESS: 0.0.0.0
+      ROCKET_PORT: 3000
+      ROCKET_LOG_LEVEL: debug
+      RUST_BACKTRACE: 1
     depends_on:
       - user-service
     networks:
       - microservices-network
+    tty: true
+    stdin_open: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # Active Microservices
   user-service:
